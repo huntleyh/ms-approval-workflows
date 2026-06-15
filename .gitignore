@@ -1,0 +1,30 @@
+# Real config with secrets — never commit
+appsettings.json
+appsettings.*.json
+!appsettings.example.json
+
+# .NET build artifacts
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Publish output
+publish/
+
+# Database files (may contain runtime data)
+*.db
+*.db-shm
+*.db-wal
+
+# Build/deploy zips
+*.zip
+
+# Rider / VS
+.idea/
+*.DotSettings.user
+
+# OS
+.DS_Store
+Thumbs.db

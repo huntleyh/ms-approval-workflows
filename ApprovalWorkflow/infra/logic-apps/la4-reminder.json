@@ -1,0 +1,86 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "$connections":    { "type": "Object", "defaultValue": {} },
+    "appBaseUrl":      { "type": "string" },
+    "logReminderUrl":  { "type": "string" },
+    "teamsWebhookUrl": { "type": "string", "defaultValue": "" }
+  },
+  "triggers": {
+    "Recurrence": {
+      "type": "Recurrence",
+      "recurrence": { "frequency": "Minute", "interval": 2 }
+    }
+  },
+  "actions": {
+    "Get_Overdue_Reminders": {
+      "type": "Http",
+      "runAfter": {},
+      "inputs": {
+        "method": "GET",
+        "uri": "@{parameters('appBaseUrl')}/api/approval/overdue-reminders"
+      }
+    },
+    "For_Each_Overdue": {
+      "type": "Foreach",
+      "runAfter": { "Get_Overdue_Reminders": ["Succeeded"] },
+      "foreach": "@body('Get_Overdue_Reminders')",
+      "actions": {
+        "Send_Reminder_Email": {
+          "type": "ApiConnection",
+          "runAfter": {},
+          "inputs": {
+            "host": {
+              "connection": { "name": "@parameters('$connections')['office365']['connectionId']" }
+            },
+            "method": "post",
+            "path": "/v2/Mail",
+            "body": {
+              "To":         "@{items('For_Each_Overdue')?['assignedApprover']}",
+              "Subject":    "Reminder — Approval Pending: @{items('For_Each_Overdue')?['tierName']}",
+              "Body":       "<p>This is a reminder that your approval is still required in <strong>Approvals Demo</strong>.</p><table><tr><td><strong>Approval Stage:</strong></td><td>@{items('For_Each_Overdue')?['tierName']}</td></tr></table><p><a href=\"@{items('For_Each_Overdue')?['reviewUrl']}\">Click here to review and approve</a></p>",
+              "Importance": "Normal",
+              "IsHtml":     true
+            }
+          }
+        },
+        "Send_Reminder_Teams": {
+          "type": "Http",
+          "runAfter": {},
+          "inputs": {
+            "method": "POST",
+            "uri":    "@{parameters('teamsWebhookUrl')}",
+            "headers": { "Content-Type": "application/json" },
+            "body": {
+              "messageTitle":   "Reminder: Approval Pending",
+              "title":          "",
+              "tierName":       "@{items('For_Each_Overdue')?['tierName']}",
+              "approverEmails": "@{items('For_Each_Overdue')?['assignedApprover']}",
+              "requestedBy":    "",
+              "reviewUrl":      "@{items('For_Each_Overdue')?['reviewUrl']}"
+            }
+          }
+        },
+        "Log_Reminder_Sent": {
+          "type": "Http",
+          "runAfter": {
+            "Send_Reminder_Email":  ["Succeeded", "Failed"],
+            "Send_Reminder_Teams":  ["Succeeded", "Failed"]
+          },
+          "inputs": {
+            "method": "POST",
+            "uri": "@{parameters('logReminderUrl')}",
+            "headers": { "Content-Type": "application/json" },
+            "body": {
+              "tierProgressId": "@{items('For_Each_Overdue')?['id']}",
+              "approverEmail":  "@{items('For_Each_Overdue')?['assignedApprover']}"
+            }
+          }
+        }
+      }
+    }
+  },
+  "outputs": {}
+}
+

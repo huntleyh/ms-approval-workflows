@@ -1,0 +1,43 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "appBaseUrl": { "type": "string" }
+  },
+  "triggers": {
+    "manual": {
+      "type": "Request",
+      "kind": "Http",
+      "inputs": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "callbackUrl": { "type": "string" },
+            "body":        {}
+          }
+        }
+      }
+    }
+  },
+  "actions": {
+    "Forward_To_LA1": {
+      "type": "Http",
+      "runAfter": {},
+      "inputs": {
+        "method": "POST",
+        "uri": "@{triggerBody()?['callbackUrl']}",
+        "headers": { "Content-Type": "application/json" },
+        "body": "@triggerBody()?['body']"
+      }
+    },
+    "Return_200": {
+      "type": "Response",
+      "runAfter": { "Forward_To_LA1": ["Succeeded", "Failed"] },
+      "inputs": {
+        "statusCode": 200,
+        "body": { "status": "relayed" }
+      }
+    }
+  },
+  "outputs": {}
+}

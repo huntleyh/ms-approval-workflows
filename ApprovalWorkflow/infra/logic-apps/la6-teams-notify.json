@@ -1,0 +1,81 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "$connections": {
+      "type": "Object",
+      "defaultValue": {}
+    },
+    "teamsGroupId": {
+      "type": "string"
+    },
+    "teamsChannelId": {
+      "type": "string"
+    }
+  },
+  "triggers": {
+    "manual": {
+      "type": "Request",
+      "kind": "Http",
+      "inputs": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "messageTitle": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "tierName": {
+              "type": "string"
+            },
+            "approverEmails": {
+              "type": "string"
+            },
+            "requestedBy": {
+              "type": "string"
+            },
+            "reviewUrl": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "actions": {
+    "Post_To_Teams_Channel": {
+      "type": "ApiConnection",
+      "runAfter": {},
+      "inputs": {
+        "host": {
+          "connection": {
+            "name": "@parameters('$connections')['teams']['connectionId']"
+          }
+        },
+        "method": "post",
+        "path": "/v3/beta/teams/@{encodeURIComponent(parameters('teamsGroupId'))}/channels/@{encodeURIComponent(parameters('teamsChannelId'))}/messages",
+        "body": {
+          "body": {
+            "contentType": "html",
+            "content": "<b>@{triggerBody()?['messageTitle']}</b><br><br><table><tr><td><b>Document</b></td><td>@{triggerBody()?['title']}</td></tr><tr><td><b>Stage</b></td><td>@{triggerBody()?['tierName']}</td></tr><tr><td><b>Assigned To</b></td><td>@{triggerBody()?['approverEmails']}</td></tr><tr><td><b>Submitted By</b></td><td>@{triggerBody()?['requestedBy']}</td></tr></table><br><a href=\"@{triggerBody()?['reviewUrl']}\">Review &amp; Approve &#8594;</a>"
+          }
+        }
+      }
+    },
+    "Return_200": {
+      "type": "Response",
+      "runAfter": {
+        "Post_To_Teams_Channel": [
+          "Succeeded",
+          "Failed"
+        ]
+      },
+      "inputs": {
+        "statusCode": 200
+      }
+    }
+  },
+  "outputs": {}
+}

@@ -1,0 +1,146 @@
+@page
+@model ApprovalWorkflow.Web.Pages.ReviewModel
+@using ApprovalWorkflow.Web.Models
+@{
+    ViewData["Title"] = "Review & Decide";
+}
+
+<div class="page-header">
+    <h1>Approval Review</h1>
+    <a href="/" class="btn btn-secondary">Dashboard</a>
+</div>
+
+@if (Model.TokenError is not null)
+{
+    <div class="alert alert-error">
+        <strong>Cannot proceed:</strong> @Model.TokenError
+    </div>
+    @if (Model.Request is not null)
+    {
+        <div class="card">
+            <div class="card-header">Request Information</div>
+            <p><strong>@Model.Request.DocumentTitle</strong></p>
+            <p>Status: <span class="badge badge-@Model.Request.Status.ToString().ToLower()">@Model.Request.Status</span></p>
+        </div>
+    }
+}
+else if (Model.TierProgress is not null && Model.Request is not null)
+{
+    <!-- Tier ladder -->
+    <div class="card">
+        <div class="card-header">Approval Progress</div>
+        <div class="tier-ladder">
+            @foreach (var t in Model.AllTiers.OrderBy(x => x.TierNumber))
+            {
+                var active = t.Id == Model.TierProgress.Id;
+                <div class="tier-step @(active ? "tier-step-active" : "") tier-step-@t.Status.ToString().ToLower()">
+                    <div class="tier-step-number">@t.TierNumber</div>
+                    <div class="tier-step-content">
+                        <strong>@t.TierName</strong>
+                        <span class="text-muted">@t.AssignedApprover</span>
+                        <span class="badge badge-@t.Status.ToString().ToLower()">@t.Status</span>
+                        @if (t.Decision != TierDecision.Pending)
+                        {
+                            <span class="text-muted"> — @t.Decision @t.DecisionDate?.ToString("dd MMM yyyy")</span>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Document -->
+    <div class="card">
+        <div class="card-header">Document: @Model.Request.DocumentTitle</div>
+        <p class="doc-summary">@Model.Request.DocumentSummary</p>
+        <pre class="doc-content">@Model.Request.DocumentContent</pre>
+    </div>
+
+    <!-- Decision form -->
+    <div class="card">
+        <div class="card-header">Your Decision — Tier @Model.TierProgress.TierNumber: @Model.TierProgress.TierName</div>
+        <p>You are reviewing as <strong>@Model.TierProgress.AssignedApprover</strong></p>
+
+        <div id="decisionResult" class="alert" style="display:none"></div>
+
+        <div class="decision-form">
+            <div class="form-row">
+                <label for="comments">Comments</label>
+                <textarea id="comments" class="form-control" rows="3"></textarea>
+            </div>
+            <div class="decision-buttons">
+                <button class="btn btn-success" onclick="submitDecision('Approved')">Approve</button>
+                <button class="btn btn-danger"  onclick="submitDecision('Rejected')">Reject</button>
+            </div>
+        </div>
+
+        <!-- Delegate section -->
+        <details class="delegate-section">
+            <summary>Delegate to another approver</summary>
+            <div class="form-row">
+                <label for="delegateTo">Delegate To (email)</label>
+                <input id="delegateTo" class="form-control" type="email" list="delegateSuggestions"
+                       placeholder="Enter any email address…" />
+                <datalist id="delegateSuggestions">
+                    @foreach (var u in Model.OtherUsers)
+                    {
+                        <option value="@u.Email">@u.Name</option>
+                    }
+                </datalist>
+            </div>
+            <div class="form-row">
+                <label for="delegateReason">Reason</label>
+                <input id="delegateReason" class="form-control" />
+            </div>
+            <button class="btn btn-secondary" onclick="submitDelegate()">Delegate</button>
+        </details>
+    </div>
+}
+
+@section Scripts {
+<script>
+const rawToken = '@Html.Raw(Model.RawToken)';
+const approvedBy = '@Html.Raw(Model.TierProgress?.AssignedApprover ?? "")';
+
+async function submitDecision(decision) {
+    const comments = document.getElementById('comments').value;
+    const res = await fetch('/api/approval/decide', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ rawToken, decision, comments, approvedBy })
+    });
+    const data = await res.json();
+    const el = document.getElementById('decisionResult');
+    el.style.display = 'block';
+    if (res.ok) {
+        el.className = 'alert alert-success';
+        el.textContent = `Decision recorded: ${decision}. You may close this window.`;
+        document.querySelector('.decision-form').style.display = 'none';
+    } else {
+        el.className = 'alert alert-error';
+        el.textContent = data.error || 'An error occurred.';
+    }
+}
+
+async function submitDelegate() {
+    const delegateTo   = document.getElementById('delegateTo').value;
+    const reason       = document.getElementById('delegateReason').value;
+    const delegateType = 1; // TODO: detect from user list
+    const res = await fetch('/api/approval/delegate', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ rawToken, delegateTo, delegateType, reason })
+    });
+    const data = await res.json();
+    const el = document.getElementById('decisionResult');
+    el.style.display = 'block';
+    if (res.ok) {
+        el.className = 'alert alert-success';
+        el.textContent = `Delegated to ${delegateTo}. Review URL sent.`;
+    } else {
+        el.className = 'alert alert-error';
+        el.textContent = data.error || 'Delegation failed.';
+    }
+}
+</script>
+}

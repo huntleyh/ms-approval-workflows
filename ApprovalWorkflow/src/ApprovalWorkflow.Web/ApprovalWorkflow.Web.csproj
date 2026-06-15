@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>ApprovalWorkflow.Web</RootNamespace>
+    <AssemblyName>ApprovalWorkflow.Web</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Microsoft.PowerPlatform.Dataverse.Client brings in Microsoft.Xrm.Sdk,
+      Microsoft.Crm.Sdk.Proxy, and all other CRM/Dataverse SDK dependencies.
+      Update to the latest stable version if a newer one is available.
+    -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.0" />
+    <PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client" Version="1.1.*" />
+  </ItemGroup>
+
+</Project>

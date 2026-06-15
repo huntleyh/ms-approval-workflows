@@ -1,0 +1,91 @@
+@page
+@model ApprovalWorkflow.Web.Pages.Admin.ResetModel
+@using ApprovalWorkflow.Web.Models
+@{
+    ViewData["Title"] = "Reset Approval";
+}
+
+<div class="page-header">
+    <h1>Reset Approval Workflow</h1>
+    <a href="/Admin" class="btn btn-secondary">Audit Trail</a>
+</div>
+
+@if (Model.SuccessMessage is not null)
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (Model.ErrorMessage is not null)
+{
+    <div class="alert alert-error">@Model.ErrorMessage</div>
+}
+
+<div class="two-col-layout">
+    <div class="card">
+        <div class="card-header">Select Request to Reset</div>
+        <ul class="wf-list">
+            @foreach (var r in Model.Requests)
+            {
+                <li class="wf-list-item @(Model.Selected?.Id == r.Id ? "active" : "")">
+                    <a href="/Admin/Reset?id=@r.Id">
+                        <strong>@r.DocumentTitle</strong>
+                        <small><span class="badge badge-@r.Status.ToString().ToLower()">@r.Status</span> — Resets: @r.ResetCount</small>
+                    </a>
+                </li>
+            }
+        </ul>
+    </div>
+
+    @if (Model.Selected is not null)
+    {
+        <div class="card">
+            <div class="card-header">
+                Reset: @Model.Selected.DocumentTitle
+            </div>
+
+            <div class="reset-warning">
+                <strong>Warning:</strong> This will cancel the current Logic App run, delete all tier
+                progress rows, and re-start the approval from Tier 1.
+            </div>
+
+            <!-- Current tier state -->
+            <h4>Current Tier Progress</h4>
+            <div class="tier-ladder" style="margin-bottom:1rem">
+                @foreach (var t in Model.TierProgress.OrderBy(x => x.TierNumber))
+                {
+                    <div class="tier-step tier-step-@t.Status.ToString().ToLower()">
+                        <div class="tier-step-number">@t.TierNumber</div>
+                        <div class="tier-step-content">
+                            <strong>@t.TierName</strong>
+                            <span class="text-muted">@t.AssignedApprover</span>
+                            <span class="badge badge-@t.Status.ToString().ToLower()">@t.Status</span>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <form method="post">
+                <input type="hidden" name="requestId" value="@Model.Selected.Id" />
+                <div class="form-row">
+                    <label for="reason">Reason for Reset *</label>
+                    <textarea class="form-control" name="reason" id="reason" rows="3" required></textarea>
+                </div>
+                <div class="form-row">
+                    <label for="overrideTier1Emails">Override Tier 1 Approver(s) <small>(optional)</small></label>
+                    <input class="form-control" name="overrideTier1Emails" id="overrideTier1Emails"
+                           placeholder="Leave blank to keep existing" />
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-danger"
+                            onclick="return confirm('Are you sure you want to reset this approval?')">
+                        Reset &amp; Re-submit
+                    </button>
+                    <a href="/Admin/Reset" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    }
+    else
+    {
+        <div class="card"><div class="empty-state">Select a request from the list to reset it.</div></div>
+    }
+</div>

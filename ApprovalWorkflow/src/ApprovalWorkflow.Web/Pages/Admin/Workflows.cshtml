@@ -1,0 +1,79 @@
+@page
+@model ApprovalWorkflow.Web.Pages.Admin.WorkflowsModel
+@using ApprovalWorkflow.Web.Models
+@{
+    ViewData["Title"] = "Workflow Configuration";
+}
+
+<div class="page-header">
+    <h1>Workflow Configuration</h1>
+    <a href="/Admin" class="btn btn-secondary">Audit Trail</a>
+</div>
+
+@if (Model.Message is not null)
+{
+    <div class="alert alert-success">@Model.Message</div>
+}
+
+<div class="two-col-layout">
+    <!-- Left: definition list -->
+    <div class="card">
+        <div class="card-header">Workflow Definitions</div>
+        <ul class="wf-list">
+            @foreach (var wf in Model.Definitions)
+            {
+                <li class="wf-list-item @(Model.Selected?.Definition.Id == wf.Id ? "active" : "")">
+                    <a href="/Admin/Workflows?id=@wf.Id">
+                        <strong>@wf.Name</strong>
+                        <small>@wf.DocumentType</small>
+                    </a>
+                </li>
+            }
+        </ul>
+    </div>
+
+    <!-- Right: tier editor -->
+    @if (Model.Selected is not null)
+    {
+        <div class="card">
+            <div class="card-header">
+                @Model.Selected.Definition.Name
+                <form method="post" asp-page-handler="ToggleWorkflow" style="display:inline">
+                    <input type="hidden" name="wfId" value="@Model.Selected.Definition.Id" />
+                    <input type="hidden" name="active" value="@(!Model.Selected.Definition.Active)" />
+                    <button type="submit" class="btn btn-xs @(Model.Selected.Definition.Active ? "btn-warning" : "btn-success")">
+                        @(Model.Selected.Definition.Active ? "Deactivate" : "Activate")
+                    </button>
+                </form>
+            </div>
+
+            <p class="text-muted">@Model.Selected.Definition.Description</p>
+
+            @foreach (var tier in Model.Selected.Tiers.OrderBy(t => t.TierNumber))
+            {
+                <div class="tier-editor-block">
+                    <h4>Tier @tier.TierNumber — @tier.TierName</h4>
+                    <form method="post" asp-page-handler="UpdateTier">
+                        <input type="hidden" name="tierId" value="@tier.Id" />
+                        <input type="hidden" name="wfId"   value="@Model.Selected.Definition.Id" />
+                        <div class="form-row">
+                            <label>Approver Email(s) <small>(semicolon-separated)</small></label>
+                            <input class="form-control" name="approverEmails" value="@tier.ApproverEmails" />
+                        </div>
+                        <div class="form-row-inline">
+                            <label>Reminder (@(Model.DemoMode ? "minutes" : "hours"))</label>
+                            <input class="form-control form-control-sm" name="reminderHours" type="number" value="@tier.ReminderHours" />
+                            <label>Expiry (@(Model.DemoMode ? "minutes" : "hours"))</label>
+                            <input class="form-control form-control-sm" name="expiryHours" type="number" value="@tier.ExpiryHours" />
+                            <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                        </div>
+                    </form>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="card"><div class="empty-state">Select a workflow to edit its tiers.</div></div>
+    }
+</div>

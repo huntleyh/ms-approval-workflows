@@ -1,0 +1,167 @@
+@page
+@model ApprovalWorkflow.Web.Pages.Admin.IndexModel
+@using ApprovalWorkflow.Web.Models
+@{
+    ViewData["Title"] = "Audit Trail";
+}
+
+<div class="page-header">
+    <h1>Audit Trail</h1>
+    <a href="/" class="btn btn-secondary">Dashboard</a>
+</div>
+
+<div class="card">
+    <div class="card-header">Filter by Request</div>
+    <form method="get" class="filter-form">
+        <select name="requestId" onchange="this.form.submit()" class="form-control">
+            <option value="">— All requests —</option>
+            @foreach (var r in Model.Requests)
+            {
+                if (Model.FilterId == r.Id)
+                {
+                    <option value="@r.Id" selected>@r.DocumentTitle (@r.RequestedBy)</option>
+                }
+                else
+                {
+                    <option value="@r.Id">@r.DocumentTitle (@r.RequestedBy)</option>
+                }
+            }
+        </select>
+    </form>
+</div>
+
+@if (Model.TierProgress.Any())
+{
+    <div class="card" style="margin-bottom:1.5rem">
+        <div class="card-header">Database Records — ApprovalTierProgress (@Model.TierProgress.Count rows)</div>
+        <div class="table-wrap" style="overflow-x:auto">
+            <table class="data-table" style="font-size:0.78rem">
+                <thead>
+                    <tr>
+                        <th>Tier #</th>
+                        <th>Tier Name</th>
+                        <th>Assigned Approver</th>
+                        <th>Status</th>
+                        <th>Decision</th>
+                        <th>Token Consumed</th>
+                        <th>Delegated From</th>
+                        <th>Last Reminded</th>
+                        <th>Decision Date</th>
+                        <th>Review URL</th>
+                        <th>Row ID</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in Model.TierProgress.OrderBy(t => t.TierNumber).ThenBy(t => t.AssignedApprover))
+                    {
+                        var statusColor = t.Status switch {
+                            ApprovalWorkflow.Web.Models.TierStatus.Approved => "#d4edda",
+                            ApprovalWorkflow.Web.Models.TierStatus.Rejected => "#f8d7da",
+                            ApprovalWorkflow.Web.Models.TierStatus.Pending  => "#fff3cd",
+                            ApprovalWorkflow.Web.Models.TierStatus.Expired  => "#e2e3e5",
+                            _ => "transparent"
+                        };
+                        <tr style="background:@statusColor">
+                            <td>@t.TierNumber</td>
+                            <td>@t.TierName</td>
+                            <td>@t.AssignedApprover</td>
+                            <td><strong>@t.Status</strong></td>
+                            <td>@t.Decision</td>
+                            <td>@(t.TokenConsumed ? "✓" : "")</td>
+                            <td>@(t.DelegatedFrom ?? "—")</td>
+                            <td>@(t.LastRemindedAt.HasValue ? t.LastRemindedAt.Value.ToString("dd MMM HH:mm") : "—")</td>
+                            <td>@(t.DecisionDate.HasValue ? t.DecisionDate.Value.ToString("dd MMM HH:mm") : "—")</td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(t.ReviewUrl))
+                                {
+                                    <a href="@t.ReviewUrl" target="_blank" style="font-size:0.7rem">Link ↗</a>
+                                }
+                                else { <span style="color:#aaa">—</span> }
+                            </td>
+                            <td><small style="color:#888">@t.Id.ToString()[..8]…</small></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1.5rem">
+        <div class="card-header">Database Records — ApprovalRequest</div>
+        <div class="table-wrap" style="overflow-x:auto">
+            <table class="data-table" style="font-size:0.78rem">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Requested By</th>
+                        <th>Workflow</th>
+                        <th>Status</th>
+                        <th>Current Tier</th>
+                        <th>Expiry Date</th>
+                        <th>Reset Count</th>
+                        <th>Created On</th>
+                        <th>Request ID</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.SelectedRequest is not null)
+                    {
+                        var r = Model.SelectedRequest;
+                        <tr>
+                            <td>@r.DocumentTitle</td>
+                            <td>@r.RequestedBy</td>
+                            <td>@(r.WorkflowDefinitionName ?? r.WorkflowDefinitionId.ToString()[..8])</td>
+                            <td><strong>@r.Status</strong></td>
+                            <td>@r.CurrentTierNumber</td>
+                            <td>@r.ExpiryDate.ToString("dd MMM yyyy HH:mm")</td>
+                            <td>@r.ResetCount</td>
+                            <td>@(r.CreatedOn.HasValue ? r.CreatedOn.Value.ToString("dd MMM yyyy HH:mm") : "—")</td>
+                            <td><small style="color:#888">@r.Id</small></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+<div class="card">
+    <div class="card-header">Events (@Model.AuditLog.Count)</div>
+    @if (!Model.AuditLog.Any())
+    {
+        <div class="empty-state">No audit entries found.</div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp (UTC)</th>
+                        <th>Request</th>
+                        <th>Tier</th>
+                        <th>Event</th>
+                        <th>By</th>
+                        <th>Notes / Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var e in Model.AuditLog.OrderByDescending(x => x.Timestamp))
+                    {
+                        <tr>
+                            <td>@e.Timestamp.ToString("dd MMM yyyy HH:mm:ss")</td>
+                            <td><small>@e.ApprovalRequestId</small></td>
+                            <td>@(e.TierNumber == 0 ? "—" : e.TierNumber.ToString())</td>
+                            <td><span class="badge badge-event">@e.EventType</span></td>
+                            <td>@e.PerformedBy</td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(e.Notes)) { <span>@e.Notes</span> }
+                                @if (!string.IsNullOrEmpty(e.NewValue)) { <code>@e.NewValue</code> }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

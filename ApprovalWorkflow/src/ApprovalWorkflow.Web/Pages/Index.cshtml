@@ -1,0 +1,81 @@
+@page
+@model ApprovalWorkflow.Web.Pages.IndexModel
+@using ApprovalWorkflow.Web.Models
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="page-header">
+    <h1>Approval Dashboard</h1>
+    <div class="header-actions">
+        <a href="/Submit" class="btn btn-primary">Submit New Request</a>
+        <a href="/Admin"  class="btn btn-secondary">Audit Trail</a>
+    </div>
+</div>
+
+<div class="summary-grid">
+    <div class="summary-card"><span class="summary-number">@Model.TotalCount</span><span class="summary-label">Total</span></div>
+    <div class="summary-card"><span class="summary-number text-amber">@Model.PendingCount</span><span class="summary-label">Pending</span></div>
+    <div class="summary-card"><span class="summary-number text-green">@Model.ApprovedCount</span><span class="summary-label">Approved</span></div>
+    <div class="summary-card"><span class="summary-number text-red">@Model.RejectedCount</span><span class="summary-label">Rejected</span></div>
+    <div class="summary-card"><span class="summary-number text-blue">@Model.ResetCount</span><span class="summary-label">Reset</span></div>
+    <div class="summary-card"><span class="summary-number text-grey">@Model.ExpiredCount</span><span class="summary-label">Expired</span></div>
+</div>
+
+<div class="card">
+    <div class="card-header">All Requests</div>
+    @if (!Model.Requests.Any())
+    {
+        <div class="empty-state">No approval requests yet. <a href="/Submit">Submit the first one.</a></div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Workflow</th>
+                        <th>Requested By</th>
+                        <th>Status</th>
+                        <th>Tier</th>
+                        <th>Resets</th>
+                        <th>Submitted</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in Model.Requests)
+                    {
+                        var tiers = Model.TierMap.GetValueOrDefault(r.Id, new());
+                        <tr>
+                            <td>
+                                <strong>@r.DocumentTitle</strong>
+                                <br /><small class="text-muted">@r.Title</small>
+                            </td>
+                            <td>@(r.WorkflowDefinitionName ?? "—")</td>
+                            <td>@r.RequestedBy</td>
+                            <td><span class="badge badge-@r.Status.ToString().ToLower()">@r.Status</span></td>
+                            <td>
+                                <div class="tier-mini">
+                                    @foreach (var t in tiers.OrderBy(x => x.TierNumber))
+                                    {
+                                        <span class="tier-dot tier-dot-@t.Status.ToString().ToLower()"
+                                              title="Tier @t.TierNumber: @t.TierName (@t.Status)">
+                                            @t.TierNumber
+                                        </span>
+                                    }
+                                </div>
+                            </td>
+                            <td>@(r.ResetCount > 0 ? r.ResetCount.ToString() : "—")</td>
+                            <td>@r.CreatedOn?.ToString("dd MMM yyyy HH:mm")</td>
+                            <td>
+                                <a href="/Admin?requestId=@r.Id" class="btn btn-xs btn-secondary">Audit</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

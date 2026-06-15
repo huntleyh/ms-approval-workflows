@@ -1,0 +1,111 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "$connections":    { "type": "Object", "defaultValue": {} },
+    "appBaseUrl":      { "type": "string" },
+    "tierCallbackUrl": { "type": "string" },
+    "teamsWebhookUrl": { "type": "string", "defaultValue": "" },
+    "notifyFromEmail": { "type": "string", "defaultValue": "" }
+  },
+  "triggers": {
+    "manual": {
+      "type": "Request",
+      "kind": "Http",
+      "inputs": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "requestId":            { "type": "string" },
+            "workflowDefinitionId": { "type": "string" },
+            "currentTierNumber":    { "type": "integer" },
+            "approvers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "email":     { "type": "string" },
+                  "reviewUrl": { "type": "string" }
+                }
+              }
+            },
+            "approverEmails":       { "type": "string" },
+            "approverType":         { "type": "string" },
+            "documentUrl":          { "type": "string" },
+            "tierName":             { "type": "string" },
+            "title":                { "type": "string" },
+            "requestedBy":          { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "actions": {
+    "For_Each_Approver": {
+      "type": "Foreach",
+      "foreach": "@triggerBody()?['approvers']",
+      "runAfter": {},
+      "actions": {
+        "Send_Approval_Email": {
+          "type": "ApiConnection",
+          "inputs": {
+            "host": {
+              "connection": { "name": "@parameters('$connections')['office365']['connectionId']" }
+            },
+            "method": "post",
+            "path": "/v2/Mail",
+            "body": {
+              "To":         "@{items('For_Each_Approver')?['email']}",
+              "Subject":    "Action Required: @{triggerBody()?['title']} — @{triggerBody()?['tierName']}",
+              "Body":       "<p>You have been requested to review and approve a document in <strong>Approvals Demo</strong>.</p><table><tr><td><strong>Document:</strong></td><td>@{triggerBody()?['title']}</td></tr><tr><td><strong>Approval Stage:</strong></td><td>@{triggerBody()?['tierName']}</td></tr><tr><td><strong>Submitted by:</strong></td><td>@{triggerBody()?['requestedBy']}</td></tr></table><p><a href=\"@{items('For_Each_Approver')?['reviewUrl']}\">Click here to review and approve</a></p><p>This link is unique to you. Do not share it.</p>",
+              "Importance": "High",
+              "IsHtml":     true
+            }
+          }
+        }
+      }
+    },
+    "Send_Teams_Notification": {
+      "type": "Http",
+      "runAfter": { "For_Each_Approver": ["Succeeded", "Failed"] },
+      "inputs": {
+        "method": "POST",
+        "uri":    "@{parameters('teamsWebhookUrl')}",
+        "headers": { "Content-Type": "application/json" },
+        "body": {
+          "messageTitle":   "Approval Required",
+          "title":          "@{triggerBody()?['title']}",
+          "tierName":       "@{triggerBody()?['tierName']}",
+          "approverEmails": "@{triggerBody()?['approverEmails']}",
+          "requestedBy":    "@{triggerBody()?['requestedBy']}",
+          "reviewUrl":      "@{triggerBody()?['documentUrl']}"
+        }
+      }
+    },
+    "Wait_For_Decision": {
+      "type": "HttpWebhook",
+      "runAfter": {
+        "Send_Teams_Notification": ["Succeeded", "Failed"]
+      },
+      "inputs": {
+        "subscribe": {
+          "method": "POST",
+          "uri": "@{parameters('tierCallbackUrl')}",
+          "headers": { "Content-Type": "application/json" },
+          "body": {
+            "approvalRequestId": "@{triggerBody()?['requestId']}",
+            "tierNumber":        "@{triggerBody()?['currentTierNumber']}",
+            "callbackUrl":       "@{listCallbackUrl()}"
+          }
+        },
+        "unsubscribe": {}
+      }
+    },
+    "Return_200": {
+      "type": "Response",
+      "runAfter": { "Wait_For_Decision": ["Succeeded", "TimedOut", "Failed", "Skipped"] },
+      "inputs": { "statusCode": 200 }
+    }
+  },
+  "outputs": {}
+}

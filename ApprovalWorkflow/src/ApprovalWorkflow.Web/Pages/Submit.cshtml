@@ -1,0 +1,86 @@
+@page
+@model ApprovalWorkflow.Web.Pages.SubmitModel
+@using ApprovalWorkflow.Web.Models
+@{
+    ViewData["Title"] = "Submit Request";
+}
+
+<div class="page-header">
+    <h1>Submit Approval Request</h1>
+    <a href="/" class="btn btn-secondary">Back to Dashboard</a>
+</div>
+
+@if (Model.SubmitResult is not null)
+{
+    <div class="alert alert-success">
+        <strong>Request Submitted!</strong>
+        <p>Request <code>@Model.SubmitResult.RequestId</code> is now at Tier @Model.SubmitResult.CurrentTier (@Model.SubmitResult.TierName).</p>
+        <p>Approver(s): <strong>@Model.SubmitResult.ApproverEmails</strong></p>
+    </div>
+}
+else
+{
+    @if (Model.ErrorMessage is not null)
+    {
+        <div class="alert alert-error">@Model.ErrorMessage</div>
+    }
+
+    <div class="card">
+        <div class="card-header">Request Details</div>
+        <form method="post">
+            <div asp-validation-summary="All" class="text-red"></div>
+
+            <div class="form-row">
+                <label asp-for="Input.WorkflowDefinitionId">Workflow *</label>
+                <select asp-for="Input.WorkflowDefinitionId"
+                        asp-items="@(new Microsoft.AspNetCore.Mvc.Rendering.SelectList(Model.WorkflowDefinitions, "Id", "Name"))"
+                        onchange="this.form.submit()"
+                        formaction="/Submit?handler=Preview">
+                    <option value="">— Select a workflow —</option>
+                </select>
+                <span asp-validation-for="Input.WorkflowDefinitionId" class="field-error"></span>
+            </div>
+
+            @if (Model.PreviewWorkflow is not null)
+            {
+                <div class="tier-preview">
+                    <h4>Approval Tiers</h4>
+                    <ol class="tier-list">
+                        @foreach (var t in Model.PreviewWorkflow.Tiers.OrderBy(t => t.TierNumber))
+                        {
+                            <li class="tier-list-item">
+                                <span class="tier-badge">Tier @t.TierNumber</span>
+                                <strong>@t.TierName</strong>
+                                <span class="text-muted"> — @t.ApproverEmails</span>
+                                <small class="text-muted">(expires @t.ExpiryHours @(Model.DemoMode ? "min" : "h"), reminder @t.ReminderHours @(Model.DemoMode ? "min" : "h"))</small>
+                            </li>
+                        }
+                    </ol>
+                </div>
+            }
+
+            <div class="form-row">
+                <label asp-for="Input.DocumentTitle">Document Title *</label>
+                <input asp-for="Input.DocumentTitle" class="form-control" />
+                <span asp-validation-for="Input.DocumentTitle" class="field-error"></span>
+            </div>
+
+            <div class="form-row">
+                <label asp-for="Input.DocumentSummary">Summary *</label>
+                <textarea asp-for="Input.DocumentSummary" class="form-control" rows="3"></textarea>
+                <span asp-validation-for="Input.DocumentSummary" class="field-error"></span>
+            </div>
+
+            <div class="form-row">
+                <label asp-for="Input.DocumentContent">Full Content *</label>
+                <textarea asp-for="Input.DocumentContent" class="form-control" rows="12"></textarea>
+                <span asp-validation-for="Input.DocumentContent" class="field-error"></span>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Submit for Approval</button>
+                <a href="/" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+}

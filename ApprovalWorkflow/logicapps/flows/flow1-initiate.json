@@ -1,0 +1,230 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "$connections":    { "defaultValue": {}, "type": "Object" },
+    "appBaseUrl":      { "defaultValue": "", "type": "String" },
+    "teamsWebhookUrl": { "defaultValue": "", "type": "String" }
+  },
+  "triggers": {
+    "When_a_HTTP_request_is_received": {
+      "type": "Request",
+      "kind": "Http",
+      "inputs": {
+        "method": "POST",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "requestId":     { "type": "string" },
+            "title":         { "type": "string" },
+            "requestedBy":   { "type": "string" },
+            "approverEmail": { "type": "string" },
+            "approverType":  { "type": "string" },
+            "documentUrl":   { "type": "string" },
+            "expiryHours":   { "type": "integer" },
+            "rawToken":      { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "actions": {
+    "Parse_request_body": {
+      "runAfter": {},
+      "type": "ParseJson",
+      "inputs": {
+        "content": "@triggerBody()",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "requestId":     { "type": "string" },
+            "title":         { "type": "string" },
+            "requestedBy":   { "type": "string" },
+            "approverEmail": { "type": "string" },
+            "approverType":  { "type": "string" },
+            "documentUrl":   { "type": "string" },
+            "expiryHours":   { "type": "integer" },
+            "rawToken":      { "type": "string" }
+          }
+        }
+      }
+    },
+    "Notify_Approver": {
+      "runAfter": { "Parse_request_body": [ "Succeeded" ] },
+      "type": "If",
+      "expression": {
+        "and": [
+          {
+            "equals": [
+              "@triggerBody()?['approverType']",
+              "Internal"
+            ]
+          }
+        ]
+      },
+      "actions": {
+        "Post_Teams_Adaptive_Card": {
+          "runAfter": {},
+          "type": "Http",
+          "inputs": {
+            "method": "POST",
+            "uri": "@{parameters('teamsWebhookUrl')}",
+            "headers": { "Content-Type": "application/json" },
+            "body": {
+              "type": "message",
+              "attachments": [
+                {
+                  "contentType": "application/vnd.microsoft.card.adaptive",
+                  "content": {
+                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                    "type": "AdaptiveCard",
+                    "version": "1.4",
+                    "body": [
+                      {
+                        "type": "TextBlock",
+                        "text": "Approval Required",
+                        "weight": "Bolder",
+                        "size": "Medium",
+                        "color": "Accent"
+                      },
+                      {
+                        "type": "FactSet",
+                        "facts": [
+                          { "title": "Request",  "value": "@{triggerBody()?['title']}" },
+                          { "title": "From",     "value": "@{triggerBody()?['requestedBy']}" },
+                          { "title": "Approver", "value": "@{triggerBody()?['approverEmail']}" }
+                        ]
+                      },
+                      {
+                        "type": "TextBlock",
+                        "text": "Please review the document and submit your decision.",
+                        "wrap": true
+                      }
+                    ],
+                    "actions": [
+                      {
+                        "type": "Action.OpenUrl",
+                        "title": "Review & Decide",
+                        "url": "@{triggerBody()?['documentUrl']}"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "else": {
+        "actions": {
+          "Send_Approval_Email": {
+            "runAfter": {},
+            "type": "ApiConnection",
+            "inputs": {
+              "host": {
+                "connection": {
+                  "name": "@parameters('$connections')['office365']['connectionId']"
+                }
+              },
+              "method": "post",
+              "path": "/v2/Mail",
+              "body": {
+                "To": "@triggerBody()?['approverEmail']",
+                "Subject": "Action Required: @{triggerBody()?['title']}",
+                "Body": "<p>You have been asked to review and approve a document.</p><table><tr><td><b>Request:</b></td><td>@{triggerBody()?['title']}</td></tr><tr><td><b>Submitted by:</b></td><td>@{triggerBody()?['requestedBy']}</td></tr></table><p>Please review the document and submit your decision using the button below.</p><p><a href=\"@{triggerBody()?['documentUrl']}\" style=\"background:#0078d4;color:white;padding:12px 24px;text-decoration:none;border-radius:4px;font-weight:bold;display:inline-block;\">Review &amp; Decide</a></p><p><i>This link is single-use and expires in @{triggerBody()?['expiryHours']} hours.</i></p>",
+                "IsHtml": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "Wait_For_Approver_Callback": {
+      "runAfter": { "Notify_Approver": [ "Succeeded" ] },
+      "type": "HttpWebhook",
+      "inputs": {
+        "subscribe": {
+          "method": "POST",
+          "uri": "@{concat(parameters('appBaseUrl'), '/api/approval/callback')}",
+          "headers": { "Content-Type": "application/json" },
+          "body": {
+            "approvalRequestId": "@{triggerBody()?['requestId']}",
+            "callbackUrl": "@{listCallbackUrl()}"
+          }
+        },
+        "unsubscribe": {}
+      }
+    },
+    "Send_Decision_Notification": {
+      "runAfter": { "Wait_For_Approver_Callback": [ "Succeeded" ] },
+      "type": "If",
+      "expression": {
+        "and": [
+          {
+            "equals": [
+              "@body('Wait_For_Approver_Callback')?['decision']",
+              "Approved"
+            ]
+          }
+        ]
+      },
+      "actions": {
+        "Send_Approval_Notification_Email": {
+          "runAfter": {},
+          "type": "ApiConnection",
+          "inputs": {
+            "host": {
+              "connection": {
+                "name": "@parameters('$connections')['office365']['connectionId']"
+              }
+            },
+            "method": "post",
+            "path": "/v2/Mail",
+            "body": {
+              "To": "@triggerBody()?['requestedBy']",
+              "Subject": "Approved: @{triggerBody()?['title']}",
+              "Body": "<p>Your approval request has been <strong>approved</strong>.</p><table><tr><td><b>Request:</b></td><td>@{triggerBody()?['title']}</td></tr><tr><td><b>Approved by:</b></td><td>@{body('Wait_For_Approver_Callback')?['approvedBy']}</td></tr><tr><td><b>Date:</b></td><td>@{utcNow()}</td></tr><tr><td><b>Comments:</b></td><td>@{body('Wait_For_Approver_Callback')?['comments']}</td></tr></table>",
+              "IsHtml": true
+            }
+          }
+        }
+      },
+      "else": {
+        "actions": {
+          "Send_Rejection_Notification_Email": {
+            "runAfter": {},
+            "type": "ApiConnection",
+            "inputs": {
+              "host": {
+                "connection": {
+                  "name": "@parameters('$connections')['office365']['connectionId']"
+                }
+              },
+              "method": "post",
+              "path": "/v2/Mail",
+              "body": {
+                "To": "@triggerBody()?['requestedBy']",
+                "Subject": "Rejected: @{triggerBody()?['title']}",
+                "Body": "<p>Your approval request has been <strong>rejected</strong>.</p><table><tr><td><b>Request:</b></td><td>@{triggerBody()?['title']}</td></tr><tr><td><b>Rejected by:</b></td><td>@{body('Wait_For_Approver_Callback')?['approvedBy']}</td></tr><tr><td><b>Date:</b></td><td>@{utcNow()}</td></tr><tr><td><b>Comments:</b></td><td>@{body('Wait_For_Approver_Callback')?['comments']}</td></tr></table>",
+                "IsHtml": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "Respond_to_trigger": {
+      "runAfter": { "Send_Decision_Notification": [ "Succeeded" ] },
+      "type": "Response",
+      "inputs": {
+        "statusCode": 200,
+        "headers": { "Content-Type": "application/json" },
+        "body": {
+          "status": "completed",
+          "decision": "@{body('Wait_For_Approver_Callback')?['decision']}"
+        }
+      }
+    }
+  },
+  "outputs": {}
+}

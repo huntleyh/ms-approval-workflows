@@ -1,0 +1,46 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "appBaseUrl": { "type": "string" },
+    "expireUrl":  { "type": "string" }
+  },
+  "triggers": {
+    "Recurrence": {
+      "type": "Recurrence",
+      "recurrence": {
+        "frequency": "Minute",
+        "interval": 1
+      }
+    }
+  },
+  "actions": {
+    "Get_Expired_Pending": {
+      "type": "Http",
+      "runAfter": {},
+      "inputs": {
+        "method": "GET",
+        "uri": "@{parameters('appBaseUrl')}/api/approval/expired-pending"
+      }
+    },
+    "For_Each_Expired": {
+      "type": "Foreach",
+      "runAfter": { "Get_Expired_Pending": ["Succeeded"] },
+      "foreach": "@body('Get_Expired_Pending')",
+      "actions": {
+        "Mark_Expired": {
+          "type": "Http",
+          "inputs": {
+            "method": "POST",
+            "uri": "@{parameters('expireUrl')}",
+            "headers": { "Content-Type": "application/json" },
+            "body": {
+              "approvalRequestId": "@{items('For_Each_Expired')?['id']}"
+            }
+          }
+        }
+      }
+    }
+  },
+  "outputs": {}
+}

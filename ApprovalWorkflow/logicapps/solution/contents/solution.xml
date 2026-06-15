@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ImportExportXml version="9.2.0.207"
+                 SolutionPackageVersion="9.2"
+                 languagecode="1033"
+                 generatedBy="ApprovalWorkflowBuild"
+                 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <SolutionManifest>
+    <UniqueName>ApprovalWorkflowSolution</UniqueName>
+    <LocalizedNames>
+      <LocalizedName description="Approval Workflow Solution" languagecode="1033" />
+    </LocalizedNames>
+    <Descriptions>
+      <Description description="Production document approval workflow with suspend/resume callback, Teams notification, and audit trail." languagecode="1033" />
+    </Descriptions>
+    <Version>1.0.0.0</Version>
+    <Managed>false</Managed>
+    <Publisher>
+      <UniqueName>cr_ApprovalWorkflow</UniqueName>
+      <LocalizedNames>
+        <LocalizedName description="Approval Workflow Publisher" languagecode="1033" />
+      </LocalizedNames>
+      <Descriptions />
+      <EMailAddress />
+      <SupportingWebsiteUrl />
+      <CustomizationPrefix>cr</CustomizationPrefix>
+      <CustomizationOptionValuePrefix>10000</CustomizationOptionValuePrefix>
+    </Publisher>
+    <RootComponents>
+      <RootComponent type="29" schemaName="cr_Flow1InitiateApproval"  behavior="0" />
+      <RootComponent type="29" schemaName="cr_Flow2ProcessCallback"   behavior="0" />
+      <RootComponent type="29" schemaName="cr_Flow3ExpiryCheck"       behavior="0" />
+    </RootComponents>
+    <MissingDependencies />
+  </SolutionManifest>
+</ImportExportXml>

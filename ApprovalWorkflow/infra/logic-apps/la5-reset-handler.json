@@ -1,0 +1,64 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "appBaseUrl": { "type": "string" },
+    "resetUrl":   { "type": "string" }
+  },
+  "triggers": {
+    "manual": {
+      "type": "Request",
+      "kind": "Http",
+      "inputs": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "approvalRequestId": { "type": "string" },
+            "reason":            { "type": "string" },
+            "triggeredBy":       { "type": "string" },
+            "tierUpdates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "tierNumber":       { "type": "integer" },
+                  "newApproverEmails": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "actions": {
+    "Call_Reset_API": {
+      "type": "Http",
+      "runAfter": {},
+      "inputs": {
+        "method": "POST",
+        "uri": "@{parameters('resetUrl')}",
+        "headers": { "Content-Type": "application/json" },
+        "authentication": {
+          "type": "ManagedServiceIdentity",
+          "audience": "@{parameters('appBaseUrl')}"
+        },
+        "body": {
+          "approvalRequestId": "@{triggerBody()?['approvalRequestId']}",
+          "reason":            "@{triggerBody()?['reason']}",
+          "triggeredBy":       "@{triggerBody()?['triggeredBy']}",
+          "tierUpdates":       "@{triggerBody()?['tierUpdates']}"
+        }
+      }
+    },
+    "Return_Result": {
+      "type": "Response",
+      "runAfter": { "Call_Reset_API": ["Succeeded", "Failed"] },
+      "inputs": {
+        "statusCode": "@{outputs('Call_Reset_API')['statusCode']}",
+        "body": "@body('Call_Reset_API')"
+      }
+    }
+  },
+  "outputs": {}
+}

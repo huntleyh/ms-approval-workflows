@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ImportExportXml version="9.2.0.207" SolutionPackageVersion="9.2" languagecode="1033" generatedBy="CrmExport" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Workflows>
+    <Workflow WorkflowId="{A1B2C3D4-0001-0001-0001-000000000001}" Name="Flow1 - Initiate Approval">
+      <JsonFileName>/Workflows/Flow1-InitiateApproval.json</JsonFileName>
+      <Category>5</Category>
+      <Subprocess>0</Subprocess>
+      <Mode>0</Mode>
+      <Scope>4</Scope>
+      <OnDemand>0</OnDemand>
+      <TriggerOnCreate>0</TriggerOnCreate>
+      <TriggerOnDeleteAttributeList />
+      <TriggerOnUpdateAttributeList />
+      <SyncAsyncWaitMode>0</SyncAsyncWaitMode>
+      <StateCode>1</StateCode>
+      <StatusCode>2</StatusCode>
+      <IsTransacted>1</IsTransacted>
+      <IntroducedVersion>1.0.0.0</IntroducedVersion>
+      <IsCustomizable>1</IsCustomizable>
+      <PrimaryEntity>none</PrimaryEntity>
+      <UniqueName>cr_Flow1InitiateApproval</UniqueName>
+      <LocalizedNames>
+        <LocalizedName description="Flow1 - Initiate Approval" languagecode="1033" />
+      </LocalizedNames>
+      <Descriptions>
+        <Description description="HTTP-triggered flow. Notifies approver (Teams or email), then suspends and waits for the approver decision callback." languagecode="1033" />
+      </Descriptions>
+    </Workflow>
+    <Workflow WorkflowId="{A1B2C3D4-0002-0002-0002-000000000002}" Name="Flow2 - Process Callback">
+      <JsonFileName>/Workflows/Flow2-ProcessCallback.json</JsonFileName>
+      <Category>5</Category>
+      <Subprocess>0</Subprocess>
+      <Mode>0</Mode>
+      <Scope>4</Scope>
+      <OnDemand>0</OnDemand>
+      <TriggerOnCreate>0</TriggerOnCreate>
+      <TriggerOnDeleteAttributeList />
+      <TriggerOnUpdateAttributeList />
+      <SyncAsyncWaitMode>0</SyncAsyncWaitMode>
+      <StateCode>1</StateCode>
+      <StatusCode>2</StatusCode>
+      <IsTransacted>1</IsTransacted>
+      <IntroducedVersion>1.0.0.0</IntroducedVersion>
+      <IsCustomizable>1</IsCustomizable>
+      <PrimaryEntity>none</PrimaryEntity>
+      <UniqueName>cr_Flow2ProcessCallback</UniqueName>
+      <LocalizedNames>
+        <LocalizedName description="Flow2 - Process Callback" languagecode="1033" />
+      </LocalizedNames>
+      <Descriptions>
+        <Description description="Stable public HTTP endpoint. Receives decision from .NET app, looks up stored callback URL, and resumes Flow1." languagecode="1033" />
+      </Descriptions>
+    </Workflow>
+    <Workflow WorkflowId="{A1B2C3D4-0003-0003-0003-000000000003}" Name="Flow3 - Expiry Check">
+      <JsonFileName>/Workflows/Flow3-ExpiryCheck.json</JsonFileName>
+      <Category>5</Category>
+      <Subprocess>0</Subprocess>
+      <Mode>0</Mode>
+      <Scope>4</Scope>
+      <OnDemand>0</OnDemand>
+      <TriggerOnCreate>0</TriggerOnCreate>
+      <TriggerOnDeleteAttributeList />
+      <TriggerOnUpdateAttributeList />
+      <SyncAsyncWaitMode>0</SyncAsyncWaitMode>
+      <StateCode>1</StateCode>
+      <StatusCode>2</StatusCode>
+      <IsTransacted>1</IsTransacted>
+      <IntroducedVersion>1.0.0.0</IntroducedVersion>
+      <IsCustomizable>1</IsCustomizable>
+      <PrimaryEntity>none</PrimaryEntity>
+      <UniqueName>cr_Flow3ExpiryCheck</UniqueName>
+      <LocalizedNames>
+        <LocalizedName description="Flow3 - Expiry Check" languagecode="1033" />
+      </LocalizedNames>
+      <Descriptions>
+        <Description description="Runs every hour. Finds pending requests past their expiry date, notifies the app, and sends expiry email to requester." languagecode="1033" />
+      </Descriptions>
+    </Workflow>
+  </Workflows>
+  <ConnectionReferences>
+    <ConnectionReference ConnectionReferenceLogicalName="cr_Office365Outlook" ConnectionReferenceDisplayName="Office 365 Outlook" ConnectorId="/providers/Microsoft.PowerApps/apis/shared_office365">
+      <LocalizedNames>
+        <LocalizedName description="Office 365 Outlook" languagecode="1033" />
+      </LocalizedNames>
+    </ConnectionReference>
+    <ConnectionReference ConnectionReferenceLogicalName="cr_MicrosoftDataverse" ConnectionReferenceDisplayName="Microsoft Dataverse" ConnectorId="/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps">
+      <LocalizedNames>
+        <LocalizedName description="Microsoft Dataverse" languagecode="1033" />
+      </LocalizedNames>
+    </ConnectionReference>
+  </ConnectionReferences>
+</ImportExportXml>

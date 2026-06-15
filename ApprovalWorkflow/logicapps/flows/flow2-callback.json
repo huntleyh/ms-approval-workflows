@@ -1,0 +1,137 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "$connections":         { "defaultValue": {}, "type": "Object" },
+    "dataverseEnvironmentUrl": { "defaultValue": "", "type": "String" }
+  },
+  "triggers": {
+    "When_a_HTTP_request_is_received": {
+      "type": "Request",
+      "kind": "Http",
+      "inputs": {
+        "method": "POST",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "approvalRequestId": { "type": "string" },
+            "decision":          { "type": "string" },
+            "comments":          { "type": "string" },
+            "approvedBy":        { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "actions": {
+    "Parse_callback_body": {
+      "runAfter": {},
+      "type": "ParseJson",
+      "inputs": {
+        "content": "@triggerBody()",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "approvalRequestId": { "type": "string" },
+            "decision":          { "type": "string" },
+            "comments":          { "type": "string" },
+            "approvedBy":        { "type": "string" }
+          }
+        }
+      }
+    },
+    "List_Dataverse_Row": {
+      "runAfter": { "Parse_callback_body": [ "Succeeded" ] },
+      "type": "ApiConnection",
+      "inputs": {
+        "host": {
+          "connection": {
+            "name": "@parameters('$connections')['commondataservice']['connectionId']"
+          }
+        },
+        "method": "get",
+        "path": "/v2/datasets/@{encodeURIComponent(encodeURIComponent(parameters('dataverseEnvironmentUrl')))}/tables/@{encodeURIComponent(encodeURIComponent('cr_approvalrequests'))}/items",
+        "queries": {
+          "$filter": "cr_approvalrequestid eq '@{triggerBody()?['approvalRequestId']}'"
+        }
+      }
+    },
+    "Check_Row_And_Callback": {
+      "runAfter": { "List_Dataverse_Row": [ "Succeeded" ] },
+      "type": "If",
+      "expression": {
+        "and": [
+          {
+            "greater": [
+              "@length(body('List_Dataverse_Row')?['value'])",
+              0
+            ]
+          },
+          {
+            "not": {
+              "equals": [
+                "@first(body('List_Dataverse_Row')?['value'])?['cr_callbackurl']",
+                ""
+              ]
+            }
+          }
+        ]
+      },
+      "actions": {
+        "Resume_Flow1_via_Callback": {
+          "runAfter": {},
+          "type": "Http",
+          "inputs": {
+            "method": "POST",
+            "uri": "@{first(body('List_Dataverse_Row')?['value'])?['cr_callbackurl']}",
+            "headers": { "Content-Type": "application/json" },
+            "body": {
+              "decision":   "@{triggerBody()?['decision']}",
+              "comments":   "@{triggerBody()?['comments']}",
+              "approvedBy": "@{triggerBody()?['approvedBy']}"
+            }
+          }
+        },
+        "Respond_200": {
+          "runAfter": { "Resume_Flow1_via_Callback": [ "Succeeded" ] },
+          "type": "Response",
+          "inputs": {
+            "statusCode": 200,
+            "headers": { "Content-Type": "application/json" },
+            "body": {
+              "status": "resumed",
+              "decision": "@{triggerBody()?['decision']}"
+            }
+          }
+        }
+      },
+      "else": {
+        "actions": {
+          "Respond_400_Not_Found": {
+            "runAfter": {},
+            "type": "Response",
+            "inputs": {
+              "statusCode": 400,
+              "headers": { "Content-Type": "application/json" },
+              "body": {
+                "error": "Callback URL not found for this request"
+              }
+            }
+          },
+          "Terminate_Flow": {
+            "runAfter": { "Respond_400_Not_Found": [ "Succeeded" ] },
+            "type": "Terminate",
+            "inputs": {
+              "runStatus": "Failed",
+              "runError": {
+                "code": "CallbackNotFound",
+                "message": "Approval request not found or callback URL is empty"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "outputs": {}
+}

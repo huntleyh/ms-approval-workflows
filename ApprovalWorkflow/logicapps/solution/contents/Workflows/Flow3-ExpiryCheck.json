@@ -1,0 +1,94 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "cr_MicrosoftDataverse"
+        },
+        "api": {
+          "name": "shared_commondataserviceforapps"
+        }
+      },
+      "shared_office365": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "cr_Office365Outlook"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      }
+    },
+    "definition": {
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "triggers": {
+    "Recurrence_Every_Hour": {
+      "type": "Recurrence",
+      "recurrence": {
+        "frequency": "Hour",
+        "interval": 1
+      }
+    }
+  },
+  "actions": {
+    "List_Pending_Expired_Requests": {
+      "runAfter": {},
+      "type": "ApiConnection",
+      "inputs": {
+        "host": {
+          "connectionName": "shared_commondataserviceforapps",
+          "operationId": "ListRecords",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+        },
+        "parameters": {
+          "entityName": "cr_approvalrequests",
+          "$filter": "cr_status eq 1 and cr_expirydate lt '@{utcNow()}'"
+        }
+      }
+    },
+    "For_Each_Expired_Request": {
+      "runAfter": { "List_Pending_Expired_Requests": [ "Succeeded" ] },
+      "type": "Foreach",
+      "foreach": "@body('List_Pending_Expired_Requests')?['value']",
+      "actions": {
+        "Notify_App_of_Expiry": {
+          "runAfter": {},
+          "type": "Http",
+          "inputs": {
+            "method": "POST",
+            "uri": "YOUR_APP_BASE_URL/api/approval/expiry-notify",
+            "headers": { "Content-Type": "application/json" },
+            "body": {
+              "approvalRequestId": "@{items('For_Each_Expired_Request')?['cr_approvalrequestid']}"
+            }
+          }
+        },
+        "Send_Expiry_Email_to_Requester": {
+          "runAfter": { "Notify_App_of_Expiry": [ "Succeeded" ] },
+          "type": "ApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_office365",
+              "operationId": "SendEmailV2",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+            },
+            "parameters": {
+              "emailMessage/To": "@{items('For_Each_Expired_Request')?['cr_requestedby']}",
+              "emailMessage/Subject": "Expired: @{items('For_Each_Expired_Request')?['cr_title']}",
+              "emailMessage/Body": "<p>Your approval request has expired with no response.</p><table><tr><td><b>Request:</b></td><td>@{items('For_Each_Expired_Request')?['cr_title']}</td></tr><tr><td><b>Submitted:</b></td><td>@{items('For_Each_Expired_Request')?['createdon']}</td></tr><tr><td><b>Expired:</b></td><td>@{items('For_Each_Expired_Request')?['cr_expirydate']}</td></tr></table><p>Please resubmit the request if approval is still needed.</p>",
+              "emailMessage/IsHtml": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "outputs": {}
+    }
+  },
+  "schemaVersion": "1.0.0.0"
+}
+

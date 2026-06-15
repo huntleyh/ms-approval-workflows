@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@(ViewData["Title"] ?? "Approval Workflow") — Approvals Demo</title>
+    <link rel="stylesheet" href="~/css/app.css" />
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-inner">
+            <a href="/" class="site-logo">Approvals Demo <span>Approval Workflow</span></a>
+            <nav class="site-nav">
+                <a href="/">Dashboard</a>
+                <a href="/Submit">Submit Request</a>
+                <a href="/Admin">Audit Trail</a>
+                <a href="/Admin/Workflows">Workflows</a>
+                <a href="/Admin/Reset">Reset</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="site-main">
+        @RenderBody()
+    </main>
+
+    <footer class="site-footer">
+        <span>Approvals Demo — Demo Build &copy; 2026</span>
+    </footer>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
